@@ -1,0 +1,74 @@
+# SeaweedFS all-in-one (master+volume+filer+S3 gateway) for local use.
+# Credentials come from the Secret "seaweedfs-credentials", created imperatively
+# (see Makefile / README) so no secret values are ever committed to the repo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs
+  namespace: data
+  labels:
+    app: seaweedfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs
+  template:
+    metadata:
+      labels:
+        app: seaweedfs
+    spec:
+      containers:
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mkdir -p /etc/seaweedfs
+              cat > /etc/seaweedfs/s3.json <<EOF
+              {"identities":[{"name":"labuser","credentials":[{"accessKey":"$(ACCESS_KEY)","secretKey":"$(SECRET_KEY)"}],"actions":["Admin","Read","Write"]}]}
+              EOF
+              exec weed server -dir=/data -s3 -s3.config=/etc/seaweedfs/s3.json -ip=0.0.0.0 -master.volumeSizeLimitMB=200
+          env:
+            - name: ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: ACCESS_KEY
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: SECRET_KEY
+          ports:
+            - containerPort: 9333
+              name: master
+            - containerPort: 8888
+              name: filer
+            - containerPort: 8333
+              name: s3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+  namespace: data
+spec:
+  selector:
+    app: seaweedfs
+  ports:
+    - name: master
+      port: 9333
+      targetPort: 9333
+    - name: filer
+      port: 8888
+      targetPort: 8888
+    - name: s3
+      port: 8333
+      targetPort: 8333
