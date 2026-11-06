@@ -1,0 +1,51 @@
+# Template for one shard's labeling Job. The Makefile/README generates one of these
+# per shard (SHARD_INDEX = 0..SHARD_COUNT-1) by substituting 1 and 3.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: label-shard-1
+  namespace: pipeline
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: labeler
+          image: python:3.12-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - pip install --quiet --no-cache-dir boto3 requests && python /app/labeler.py
+          env:
+            - name: SHARD_INDEX
+              value: "1"
+            - name: SHARD_COUNT
+              value: "3"
+            - name: S3_ENDPOINT
+              value: "http://seaweedfs.data.svc.cluster.local:8333"
+            - name: OLLAMA_URL
+              value: "http://host.k3d.internal:11434/api/generate"
+            - name: TEACHER_MODEL
+              value: "phi3.5"
+            - name: ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: ACCESS_KEY
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seaweedfs-credentials
+                  key: SECRET_KEY
+          volumeMounts:
+            - name: code
+              mountPath: /app
+            - name: prompt
+              mountPath: /config
+      volumes:
+        - name: code
+          configMap:
+            name: labeler-code
+        - name: prompt
+          configMap:
+            name: teacher-prompt

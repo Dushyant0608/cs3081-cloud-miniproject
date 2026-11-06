@@ -1,0 +1,23 @@
+# Python / venv
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Model weights and local training artifacts — never commit these (rubric requirement).
+# Models go to object storage + GitHub Release assets instead.
+models_local/
+*.bin
+*.safetensors
+*.pt
+*.onnx
+training/checkpoints/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Anything that might accidentally hold real credentials
+*.env
+.env
+secrets/
