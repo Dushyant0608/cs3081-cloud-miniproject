@@ -168,7 +168,12 @@ def main():
 
     is_subset_test = args.subset is not None
     out_dir = "training/_subset_test_output" if is_subset_test else f"models_local/{args.version}"
-    loss_csv = "training/_subset_test_loss.csv" if is_subset_test else "training/loss.csv"
+    if is_subset_test:
+        loss_csv = "training/_subset_test_loss.csv"
+    elif args.version == "v1":
+        loss_csv = "training/loss.csv"  # the file the handout asks for
+    else:
+        loss_csv = f"training/loss_{args.version}.csv"
 
     training_args = TrainingArguments(
         output_dir="training/_hf_tmp",
