@@ -84,16 +84,40 @@ class DistillDataset(Dataset):
     def __init__(self, examples, tokenizer, max_len):
         self.items = []
         eos = tokenizer.eos_token
+        n_fully_masked = 0
         for prompt, target in examples:
             full = prompt + target + eos
-            prompt_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
-            full_ids = tokenizer(full, add_special_tokens=False,
-                                  truncation=True, max_length=max_len)["input_ids"]
+            enc = tokenizer(full, add_special_tokens=False, truncation=True,
+                             max_length=max_len, return_offsets_mapping=True)
+            full_ids = enc["input_ids"]
+            offsets = enc["offset_mapping"]
+            prompt_char_len = len(prompt)
             labels = list(full_ids)
-            mask_len = min(len(prompt_ids), len(labels))
-            for i in range(mask_len):
+            # Mask only tokens that fall entirely within the prompt (by character offset,
+            # computed from ONE tokenization of the full text, not a separate tokenization
+            # of the prompt alone -- BPE can merge differently right at that boundary,
+            # e.g. the space before "{" merging with it, which silently misaligns a
+            # prompt-only tokenization from the true prefix inside the full sequence).
+            boundary = len(full_ids)
+            for i, (start, end) in enumerate(offsets):
+                if end > prompt_char_len:
+                    boundary = i
+                    break
+            for i in range(boundary):
                 labels[i] = -100
+            if boundary >= len(full_ids):
+                n_fully_masked += 1
             self.items.append({"input_ids": full_ids, "labels": labels})
+        if n_fully_masked:
+            print(f"WARNING: {n_fully_masked} example(s) had no unmasked target tokens "
+                  f"(prompt likely exceeded max_seq_length) -- check max_seq_length.")
+        # Sanity check: show what the model is actually being trained to predict for
+        # the first example, so a masking bug is visible immediately instead of only
+        # showing up later as empty generations.
+        first = self.items[0]
+        target_ids = [t for t in first["labels"] if t != -100]
+        print("Sanity check -- first training example's (unmasked) target decodes to:")
+        print(f"  {tokenizer.decode(target_ids)!r}")
 
     def __len__(self):
         return len(self.items)
