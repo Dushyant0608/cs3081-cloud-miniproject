@@ -28,7 +28,7 @@ spec:
               cat > /etc/seaweedfs/s3.json <<EOF
               {"identities":[{"name":"labuser","credentials":[{"accessKey":"$(ACCESS_KEY)","secretKey":"$(SECRET_KEY)"}],"actions":["Admin","Read","Write"]}]}
               EOF
-              exec weed server -dir=/data -s3 -s3.config=/etc/seaweedfs/s3.json -ip=0.0.0.0 -master.volumeSizeLimitMB=200
+              exec weed server -dir=/data -s3 -s3.config=/etc/seaweedfs/s3.json -ip=0.0.0.0 -master.volumeSizeLimitMB=200 -volume.max=0
           env:
             - name: ACCESS_KEY
               valueFrom:
